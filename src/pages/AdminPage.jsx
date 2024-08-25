@@ -1,7 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button, Input, Table, Modal, message } from "antd";
 import { useNavigate } from "react-router-dom";
-import { CopyOutlined, CheckOutlined } from "@ant-design/icons"; // Импортируем иконки
+import {
+  CopyOutlined,
+  CheckOutlined,
+  ShareAltOutlined,
+} from "@ant-design/icons"; // Импортируем иконки
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const AdminPage = () => {
   const [customers, setCustomers] = useState(
@@ -45,13 +51,24 @@ const AdminPage = () => {
   const handleCopyId = (id) => {
     navigator.clipboard.writeText(id).then(() => {
       setCopiedId(id); // Устанавливаем скопированный ID
-      message.success("ID скопирован в буфер обмена!");
+      message.success("Код скопирован в буфер обмена!");
 
       // Возвращаем иконку через 4 секунды
       setTimeout(() => {
         setCopiedId(null);
       }, 4000);
     });
+  };
+
+  // Обработчик создания и скачивания PDF
+  const handleShare = (customer) => {
+    const doc = new jsPDF();
+    autoTable(doc, {
+      head: [["ID", "Имя", "Долг"]],
+      body: [[customer.id, customer.name, customer.debtTotal]],
+      theme: "striped",
+    });
+    doc.save(`${customer.name}-debt.pdf`);
   };
 
   // Колонки таблицы
@@ -80,7 +97,7 @@ const AdminPage = () => {
       render: (text) => <span>{text}</span>,
     },
     {
-      title: "Копировать ID",
+      title: "",
       key: "copy",
       render: (text, record) => (
         <Button
@@ -95,6 +112,19 @@ const AdminPage = () => {
         />
       ),
     },
+    {
+      title: "",
+      key: "share",
+      render: (text, record) =>
+        record.debtTotal >= 10000 ? (
+          <Button
+            onClick={() => handleShare(record)}
+            icon={<ShareAltOutlined />}
+          >
+            Поделиться
+          </Button>
+        ) : null,
+    },
   ];
 
   // Эффект для установки фокуса на поле ввода при открытии модального окна
@@ -104,13 +134,36 @@ const AdminPage = () => {
     }
   }, [isModalVisible]);
 
+  const handleLogout = () => {
+    // Очистить данные авторизации из sessionStorage
+    sessionStorage.removeItem("userType");
+    // Перенаправить на главную страницу
+    navigate("/");
+  };
+
   return (
-    <div>
+    <div style={{ position: "relative" }}>
       <h2>Административная панель</h2>
+      <Button
+        type="primary"
+        onClick={handleLogout}
+        style={{
+          position: "absolute",
+          top: 20,
+          right: 20,
+        }}
+      >
+        Выйти
+      </Button>
       <Button onClick={() => setIsModalVisible(true)}>
         Добавить покупателя
       </Button>
-      <Table dataSource={customers} columns={columns} rowKey="id" />
+      <Table
+        dataSource={customers}
+        columns={columns}
+        rowKey="id"
+        pagination={{ pageSize: 10 }}
+      />
       <Modal
         title="Добавить покупателя"
         visible={isModalVisible}
