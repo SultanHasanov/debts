@@ -4,10 +4,8 @@ import { useNavigate } from "react-router-dom";
 import {
   CopyOutlined,
   CheckOutlined,
-  ShareAltOutlined,
 } from "@ant-design/icons"; // Импортируем иконки
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import cash from "./cash.png";
 
 const AdminPage = () => {
   const [customers, setCustomers] = useState(
@@ -60,44 +58,7 @@ const AdminPage = () => {
     });
   };
 
-  // Обработчик создания и поделиться PDF
-  const handleShare = (customer) => {
-    const doc = new jsPDF();
-    autoTable(doc, {
-      head: [["ID", "Имя", "Долг"]],
-      body: [[customer.id, customer.name, customer.debtTotal]],
-      theme: "striped",
-    });
-
-    // Генерация PDF в формате Blob
-    const pdfBlob = doc.output("blob");
-
-    // Создание URL для Blob
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-
-    // Использование интерфейса Share API для открытия диалогового окна
-    if (navigator.share) {
-      navigator
-        .share({
-          title: `${customer.name} - Долг`,
-          url: pdfUrl,
-        })
-        .then(() => {
-          message.success("Файл успешно отправлен!");
-        })
-        .catch((error) => {
-          message.error("Ошибка при отправке файла.");
-          console.error("Share failed:", error);
-        });
-    } else {
-      // Если Share API не поддерживается, скачиваем файл
-      doc.save(`${customer.name}-debt.pdf`);
-    }
-
-    // Освобождение ресурсов после использования URL
-    URL.revokeObjectURL(pdfUrl);
-  };
-
+  
   // Колонки таблицы
   const columns = [
     {
@@ -141,15 +102,10 @@ const AdminPage = () => {
     },
     {
       title: "",
-      key: "share",
+      key: "money",
       render: (text, record) =>
         record.debtTotal >= 10000 ? (
-          <Button
-            onClick={() => handleShare(record)}
-            icon={<ShareAltOutlined />}
-          >
-            Поделиться
-          </Button>
+          <img src={cash} style={{ height: 50 }} /> // Иконка денег
         ) : null,
     },
   ];

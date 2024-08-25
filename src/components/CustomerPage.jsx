@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button, Input, Table, Modal, message, Progress, Slider } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, ShareAltOutlined } from "@ant-design/icons";
 import html2canvas from "html2canvas";
 
 const CustomerPage = () => {
@@ -264,8 +264,10 @@ const CustomerPage = () => {
               </p>
             </>
           )}
+
           <Button
             onClick={captureScreenshot}
+            icon={<ShareAltOutlined />}
             style={{ marginTop: 10, backgroundColor: "#007bff", color: "#fff" }}
           >
             Поделиться скриншотом
