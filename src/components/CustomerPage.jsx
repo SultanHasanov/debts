@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Button, Input, Table, Modal, message, Progress, Slider } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeftOutlined } from "@ant-design/icons";
-
+import html2canvas from "html2canvas";
 
 const CustomerPage = () => {
   const { id } = useParams();
@@ -15,26 +15,24 @@ const CustomerPage = () => {
   const [hasPaidRequiredAmount, setHasPaidRequiredAmount] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const inputRef = useRef(null);
- const navigate = useNavigate();
+  const navigate = useNavigate();
+  const customerRef = useRef(null); // Ref for the customer element
+  const historyRef = useRef(null); // Ref for the history element
 
   const handleBack = () => {
-    navigate(-1); // Возвращает на предыдущую страницу в истории
+    navigate(-1); // Go back to the previous page
   };
 
   useEffect(() => {
-    // Загрузка данных покупателя из localStorage
+    // Load customer data from localStorage
     const customerData = JSON.parse(localStorage.getItem("customers"))?.find(
       (c) => c.id === id
     );
     setCustomer(customerData || { debtTotal: 0, history: [] });
 
-    // Проверка авторизационных данных
+    // Check authorization
     const userType = sessionStorage.getItem("userType");
-    if (userType === "admin") {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
-    }
+    setIsAdmin(userType === "admin");
   }, [id]);
 
   useEffect(() => {
@@ -183,6 +181,36 @@ const CustomerPage = () => {
     }
   };
 
+  const captureScreenshot = () => {
+    if (!historyRef.current) return;
+
+    html2canvas(historyRef.current).then((canvas) => {
+      canvas.toBlob((blob) => {
+        const file = new File([blob], `debt_history_${customer.name}.png`, {
+          type: "image/png",
+        });
+
+        // Share the screenshot if Web Share API is available
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator
+            .share({
+              files: [file],
+              title: `Debt History - ${customer.name}`,
+              text: "Here is the debt history screenshot.",
+            })
+            .then(() => console.log("Shared successfully!"))
+            .catch((error) => console.log("Sharing failed:", error));
+        } else {
+          // Fallback for browsers that do not support Web Share API
+          const link = document.createElement("a");
+          link.href = canvas.toDataURL("image/png");
+          link.download = `debt_history_${customer.name}.png`;
+          link.click();
+        }
+      });
+    });
+  };
+
   if (!customer) {
     return <div>Загрузка данных покупателя...</div>;
   }
@@ -196,9 +224,9 @@ const CustomerPage = () => {
   };
 
   return (
-    <div>
+    <div ref={customerRef}>
       <Button
-        
+        type="link"
         icon={<ArrowLeftOutlined />}
         onClick={handleBack}
         style={{ marginBottom: "20px" }}
@@ -236,17 +264,39 @@ const CustomerPage = () => {
               </p>
             </>
           )}
+          <Button
+            onClick={captureScreenshot}
+            style={{ marginTop: 10, backgroundColor: "#1890ff", color: "#fff" }}
+          >
+            Скачать скриншот
+          </Button>
+          <Button
+            onClick={captureScreenshot}
+            style={{ marginTop: 10, backgroundColor: "#007bff", color: "#fff" }}
+          >
+            Поделиться скриншотом
+          </Button>
         </>
       )}
-      <Table
-        dataSource={customer.history}
-        columns={[
-          { title: "Сумма", dataIndex: "amount", key: "amount" },
-          { title: "Комментарий", dataIndex: "comment", key: "comment" },
-          { title: "Дата", dataIndex: "date", key: "date" },
-        ]}
-        rowKey="date"
-      />
+      <div
+        ref={historyRef}
+        style={{
+          padding: "20px",
+          backgroundColor: "#f9f9f9",
+          marginBottom: "20px",
+        }}
+      >
+        <Table
+          dataSource={customer.history}
+          columns={[
+            { title: "Сумма", dataIndex: "amount", key: "amount" },
+            { title: "Комментарий", dataIndex: "comment", key: "comment" },
+            { title: "Дата", dataIndex: "date", key: "date" },
+          ]}
+          rowKey="date"
+        />
+        <p>Текущий долг: {customer.debtTotal} рублей</p>
+      </div>
       <Modal
         title="Добавить новый долг"
         visible={isModalVisible}

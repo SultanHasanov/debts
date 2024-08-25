@@ -6,7 +6,8 @@ import {
   CheckOutlined,
   ShareAltOutlined,
 } from "@ant-design/icons"; // Импортируем иконки
-import html2canvas from "html2canvas"; // Импортируем html2canvas
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const AdminPage = () => {
   const [customers, setCustomers] = useState(
@@ -17,7 +18,6 @@ const AdminPage = () => {
   const [copiedId, setCopiedId] = useState(null); // Состояние для отслеживания скопированного ID
   const navigate = useNavigate();
   const inputRef = useRef(null); // Создаем реф для поля ввода
-  const screenshotRef = useRef(null); // Реф для области, которую нужно захватить
 
   // Функция для генерации уникального четырехзначного ID
   const generateUniqueId = (existingIds) => {
@@ -60,42 +60,42 @@ const AdminPage = () => {
     });
   };
 
-  // Обработчик создания и поделиться изображением
-  const handleShare = async (customer) => {
-    try {
-      const element = screenshotRef.current;
-      const canvas = await html2canvas(element);
-      const dataUrl = canvas.toDataURL("image/jpeg"); // Изменение формата на JPEG
+  // Обработчик создания и поделиться PDF
+  const handleShare = (customer) => {
+    const doc = new jsPDF();
+    autoTable(doc, {
+      head: [["ID", "Имя", "Долг"]],
+      body: [[customer.id, customer.name, customer.debtTotal]],
+      theme: "striped",
+    });
 
-      // Создание объекта File из Data URL
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const file = new File([blob], `${customer.name}-debt.jpg`, {
-        type: "image/jpeg",
-      });
+    // Генерация PDF в формате Blob
+    const pdfBlob = doc.output("blob");
 
-      // Использование интерфейса Share API для открытия диалогового окна
-      if (navigator.share) {
-        navigator
-          .share({
-            title: `${customer.name} - Долг`,
-            text: `Долг клиента ${customer.name}`,
-            files: [file],
-          })
-          .then(() => {
-            message.success("Файл успешно отправлен!");
-          })
-          .catch((error) => {
-            message.error("Ошибка при отправке файла.");
-            console.error("Share failed:", error);
-          });
-      } else {
-        message.error("Share API не поддерживается в вашем браузере.");
-      }
-    } catch (error) {
-      message.error("Ошибка при создании изображения.");
-      console.error("Screenshot failed:", error);
+    // Создание URL для Blob
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+
+    // Использование интерфейса Share API для открытия диалогового окна
+    if (navigator.share) {
+      navigator
+        .share({
+          title: `${customer.name} - Долг`,
+          url: pdfUrl,
+        })
+        .then(() => {
+          message.success("Файл успешно отправлен!");
+        })
+        .catch((error) => {
+          message.error("Ошибка при отправке файла.");
+          console.error("Share failed:", error);
+        });
+    } else {
+      // Если Share API не поддерживается, скачиваем файл
+      doc.save(`${customer.name}-debt.pdf`);
     }
+
+    // Освобождение ресурсов после использования URL
+    URL.revokeObjectURL(pdfUrl);
   };
 
   // Колонки таблицы
@@ -204,14 +204,6 @@ const AdminPage = () => {
           onChange={(e) => setNewCustomerName(e.target.value)}
         />
       </Modal>
-
-      {/* Элемент, который будет скриншотирован */}
-      <div ref={screenshotRef} style={{ display: "none" }}>
-        <div style={{ padding: 20 }}>
-          <h3>{newCustomerName}</h3>
-          <p>Долг: 0</p>
-        </div>
-      </div>
     </div>
   );
 };
