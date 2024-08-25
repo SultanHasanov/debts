@@ -195,8 +195,8 @@ const CustomerPage = () => {
           navigator
             .share({
               files: [file],
-              title: `Debt History - ${customer.name}`,
-              text: "Here is the debt history screenshot.",
+              title: `Долг - ${customer.name}`,
+              text: "Отдай долг тварь.",
             })
             .then(() => console.log("Shared successfully!"))
             .catch((error) => console.log("Sharing failed:", error));
@@ -264,12 +264,6 @@ const CustomerPage = () => {
               </p>
             </>
           )}
-          <Button
-            onClick={captureScreenshot}
-            style={{ marginTop: 10, backgroundColor: "#1890ff", color: "#fff" }}
-          >
-            Скачать скриншот
-          </Button>
           <Button
             onClick={captureScreenshot}
             style={{ marginTop: 10, backgroundColor: "#007bff", color: "#fff" }}
