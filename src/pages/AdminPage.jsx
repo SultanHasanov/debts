@@ -60,7 +60,7 @@ const AdminPage = () => {
     });
   };
 
-  // Обработчик создания и скачивания PDF
+  // Обработчик создания и поделиться PDF
   const handleShare = (customer) => {
     const doc = new jsPDF();
     autoTable(doc, {
@@ -68,7 +68,34 @@ const AdminPage = () => {
       body: [[customer.id, customer.name, customer.debtTotal]],
       theme: "striped",
     });
-    doc.save(`${customer.name}-debt.pdf`);
+
+    // Генерация PDF в формате Blob
+    const pdfBlob = doc.output("blob");
+
+    // Создание URL для Blob
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+
+    // Использование интерфейса Share API для открытия диалогового окна
+    if (navigator.share) {
+      navigator
+        .share({
+          title: `${customer.name} - Долг`,
+          url: pdfUrl,
+        })
+        .then(() => {
+          message.success("Файл успешно отправлен!");
+        })
+        .catch((error) => {
+          message.error("Ошибка при отправке файла.");
+          console.error("Share failed:", error);
+        });
+    } else {
+      // Если Share API не поддерживается, скачиваем файл
+      doc.save(`${customer.name}-debt.pdf`);
+    }
+
+    // Освобождение ресурсов после использования URL
+    URL.revokeObjectURL(pdfUrl);
   };
 
   // Колонки таблицы
