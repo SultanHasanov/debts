@@ -65,7 +65,14 @@ const AdminPage = () => {
     try {
       const element = screenshotRef.current;
       const canvas = await html2canvas(element);
-      const dataUrl = canvas.toDataURL("image/png");
+      const dataUrl = canvas.toDataURL("image/jpeg"); // Изменение формата на JPEG
+
+      // Создание объекта File из Data URL
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `${customer.name}-debt.jpg`, {
+        type: "image/jpeg",
+      });
 
       // Использование интерфейса Share API для открытия диалогового окна
       if (navigator.share) {
@@ -73,11 +80,7 @@ const AdminPage = () => {
           .share({
             title: `${customer.name} - Долг`,
             text: `Долг клиента ${customer.name}`,
-            files: [
-              new File([dataUrl], `${customer.name}-debt.png`, {
-                type: "image/png",
-              }),
-            ],
+            files: [file],
           })
           .then(() => {
             message.success("Файл успешно отправлен!");
