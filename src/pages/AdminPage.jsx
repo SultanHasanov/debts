@@ -1,32 +1,30 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button, Input, Table, Modal, message } from "antd";
 import { useNavigate } from "react-router-dom";
-import {
-  CopyOutlined,
-  CheckOutlined,
-} from "@ant-design/icons"; // Импортируем иконки
+import { CopyOutlined, CheckOutlined } from "@ant-design/icons";
 import cash from "./cash.png";
 
 const AdminPage = () => {
   const [customers, setCustomers] = useState(
     JSON.parse(localStorage.getItem("customers")) || []
   );
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [newCustomerName, setNewCustomerName] = useState("");
-  const [copiedId, setCopiedId] = useState(null); // Состояние для отслеживания скопированного ID
+  const [isAddCustomerModalVisible, setIsAddCustomerModalVisible] =
+    useState(false); // Separate state for add customer modal
+  const [isInfoModalVisible, setIsInfoModalVisible] = useState(false); // Separate state for info modal
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [newCustomerName, setNewCustomerName] = useState(""); // State for new customer name
+  const [copiedId, setCopiedId] = useState(null);
   const navigate = useNavigate();
-  const inputRef = useRef(null); // Создаем реф для поля ввода
+  const inputRef = useRef(null);
 
-  // Функция для генерации уникального четырехзначного ID
   const generateUniqueId = (existingIds) => {
     let newId;
     do {
-      newId = Math.floor(Math.random() * 9000) + 1000; // Генерируем случайное число от 1000 до 9999
-    } while (existingIds.includes(newId)); // Проверяем, не занят ли ID
+      newId = Math.floor(Math.random() * 9000) + 1000;
+    } while (existingIds.includes(newId));
     return newId.toString();
   };
 
-  // Обработчик добавления покупателя
   const handleAddCustomer = () => {
     const existingIds = customers.map((customer) => customer.id);
     const newCustomerId = generateUniqueId(existingIds);
@@ -42,31 +40,40 @@ const AdminPage = () => {
     localStorage.setItem("customers", JSON.stringify(updatedCustomers));
     setCustomers(updatedCustomers);
     setNewCustomerName("");
-    setIsModalVisible(false);
+    setIsAddCustomerModalVisible(false); // Close the add customer modal
   };
 
-  // Обработчик копирования ID
   const handleCopyId = (id) => {
     navigator.clipboard.writeText(id).then(() => {
-      setCopiedId(id); // Устанавливаем скопированный ID
+      setCopiedId(id);
       message.success("Код скопирован в буфер обмена!");
-
-      // Возвращаем иконку через 4 секунды
       setTimeout(() => {
         setCopiedId(null);
       }, 4000);
     });
   };
 
-  
-  // Колонки таблицы
+  const handleCustomerNameClick = (record) => {
+    setSelectedCustomer(record);
+    setIsInfoModalVisible(true); // Open the info modal
+  };
+
   const columns = [
     {
       title: "№",
       key: "index",
-      render: (_, __, index) => <span>{index + 1}</span>, // Порядковый номер
+      render: (_, __, index) => <span>{index + 1}</span>,
     },
-    { title: "Имя", dataIndex: "name", key: "name" },
+    {
+      title: "Имя",
+      dataIndex: "name",
+      key: "name",
+      render: (text, record) => (
+        <Button type="link" onClick={() => handleCustomerNameClick(record)}>
+          {text}
+        </Button>
+      ),
+    },
     {
       title: "Действия",
       key: "actions",
@@ -79,48 +86,23 @@ const AdminPage = () => {
       ),
     },
     {
-      title: "Код",
-      dataIndex: "id",
-      key: "id",
-      render: (text) => <span>{text}</span>,
-    },
-    {
-      title: "",
-      key: "copy",
-      render: (text, record) => (
-        <Button
-          onClick={() => handleCopyId(record.id)}
-          icon={
-            copiedId === record.id ? (
-              <CheckOutlined style={{ color: "green" }} /> // Зеленая галочка
-            ) : (
-              <CopyOutlined />
-            )
-          }
-        />
-      ),
-    },
-    {
       title: "",
       key: "money",
       render: (text, record) =>
         record.debtTotal >= 10000 ? (
-          <img src={cash} style={{ height: 50 }} /> // Иконка денег
+          <img src={cash} style={{ height: 50 }} />
         ) : null,
     },
   ];
 
-  // Эффект для установки фокуса на поле ввода при открытии модального окна
   useEffect(() => {
-    if (isModalVisible && inputRef.current) {
+    if (isAddCustomerModalVisible && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [isModalVisible]);
+  }, [isAddCustomerModalVisible]);
 
   const handleLogout = () => {
-    // Очистить данные авторизации из sessionStorage
     sessionStorage.removeItem("userType");
-    // Перенаправить на главную страницу
     navigate("/");
   };
 
@@ -132,13 +114,13 @@ const AdminPage = () => {
         onClick={handleLogout}
         style={{
           position: "absolute",
-          top: 20,
+          top: 4,
           right: 20,
         }}
       >
         Выйти
       </Button>
-      <Button onClick={() => setIsModalVisible(true)}>
+      <Button onClick={() => setIsAddCustomerModalVisible(true)}>
         Добавить покупателя
       </Button>
       <Table
@@ -149,16 +131,46 @@ const AdminPage = () => {
       />
       <Modal
         title="Добавить покупателя"
-        visible={isModalVisible}
+        visible={isAddCustomerModalVisible}
         onOk={handleAddCustomer}
-        onCancel={() => setIsModalVisible(false)}
+        onCancel={() => setIsAddCustomerModalVisible(false)}
       >
         <Input
-          ref={inputRef} // Устанавливаем реф
+          ref={inputRef}
           placeholder="Имя покупателя"
           value={newCustomerName}
           onChange={(e) => setNewCustomerName(e.target.value)}
         />
+      </Modal>
+
+      <Modal
+        title="Информация о покупателе"
+        visible={isInfoModalVisible}
+        onCancel={() => setIsInfoModalVisible(false)}
+        footer={null}
+      >
+        {selectedCustomer && (
+          <div>
+            <p>
+              <strong>Имя:</strong> {selectedCustomer.name}
+            </p>
+            <p>
+              <strong>Код:</strong> {selectedCustomer.id}
+            </p>
+            <Button
+              onClick={() => handleCopyId(selectedCustomer.id)}
+              icon={
+                copiedId === selectedCustomer.id ? (
+                  <CheckOutlined style={{ color: "green" }} />
+                ) : (
+                  <CopyOutlined />
+                )
+              }
+            >
+              Копировать код
+            </Button>
+          </div>
+        )}
       </Modal>
     </div>
   );
