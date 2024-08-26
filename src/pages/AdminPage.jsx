@@ -114,7 +114,7 @@ const AdminPage = () => {
         onClick={handleLogout}
         style={{
           position: "absolute",
-          top: 4,
+          top: 44,
           right: 20,
         }}
       >

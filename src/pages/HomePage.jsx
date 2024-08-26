@@ -17,18 +17,33 @@ const HomePage = () => {
     // Устанавливаем информацию о входе как администратор
     sessionStorage.setItem("userType", "admin");
   };
-
   return (
-    <div style={{ textAlign: "center", marginTop: 50 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+      }}
+    >
       <Link to="/admin-login">
-        <Button type="primary" onClick={handleAdminLogin}>
+        <Button
+          type="primary"
+          onClick={handleAdminLogin}
+          style={{ fontSize: "25px", padding: "20px 20px" }}
+        >
           Войти как администратор
         </Button>
       </Link>
       <br />
       <br />
       {!showForm ? (
-        <Button type="default" onClick={handleCustomerLogin}>
+        <Button
+          type="default"
+          onClick={handleCustomerLogin}
+          style={{ fontSize: "25px", padding: "20px 20px" }}
+        >
           Войти как покупатель
         </Button>
       ) : (

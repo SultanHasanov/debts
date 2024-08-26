@@ -19,7 +19,7 @@ const AdminLogin = () => {
 
   const handleLogin = () => {
     // Простой процесс логина, можно заменить на реальную авторизацию
-    if (username === "1234" && password === "1234") {
+    if (username === "1111" && password === "2222") {
       // Сохранение логина и пароля в sessionStorage
       sessionStorage.setItem("username", username);
       sessionStorage.setItem("password", password);
