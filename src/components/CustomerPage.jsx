@@ -241,6 +241,16 @@ const CustomerPage = () => {
         format={() => `${customer.debtTotal} рублей`}
         style={{ marginBottom: 20 }}
       />
+      {!isAdmin && (
+        <>
+          {isOverLimit && (
+            <p style={{ color: "red" }}>
+              Долг превышает 10000 рублей. Необходимо оплатить 40% от долга,
+              чтобы сделать следующую покупку.
+            </p>
+          )}
+        </>
+      )}
       {isAdmin && (
         <>
           <Button

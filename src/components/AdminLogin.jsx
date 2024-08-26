@@ -30,21 +30,47 @@ const AdminLogin = () => {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Вход администратора</h2>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "20px",
+        height: "100vh",
+      }}
+    >
+      <h2 style={{ marginBottom: "20px" }}>Вход администратора</h2>
       <Input
         placeholder="Имя пользователя"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
-        style={{ marginBottom: "10px" }}
+        style={{
+          marginBottom: "10px",
+          width: "300px",
+          fontSize: "16px",
+          padding: "10px",
+        }}
       />
       <Input.Password
         placeholder="Пароль"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        style={{ marginBottom: "20px" }}
+        style={{
+          marginBottom: "20px",
+          width: "300px",
+          fontSize: "16px",
+          padding: "10px",
+        }}
       />
-      <Button type="primary" onClick={handleLogin}>
+      <Button
+        type="primary"
+        onClick={handleLogin}
+        style={{
+          fontSize: "30px",
+          padding: "25px 25px",
+        }}
+      >
         Войти
       </Button>
     </div>
