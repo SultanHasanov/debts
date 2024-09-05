@@ -231,7 +231,7 @@ const CustomerPage = () => {
         (position) => {
           const { latitude, longitude } = position.coords;
           setLocation({ latitude, longitude });
-
+          message.success("Местоположение успешно получено!");
           // Генерация ссылки для обмена через Яндекс.Карты
           const locationLink = `https://yandex.ru/maps/?ll=${longitude},${latitude}&z=12`;
           setShareUrl(locationLink);
