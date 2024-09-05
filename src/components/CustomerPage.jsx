@@ -16,6 +16,8 @@ const CustomerPage = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const inputRef = useRef(null);
   const navigate = useNavigate();
+  const [location, setLocation] = useState(null); // Местоположение пользователя
+  const [shareUrl, setShareUrl] = useState(""); // URL для передачи
   const customerRef = useRef(null); // Ref for the customer element
   const historyRef = useRef(null); // Ref for the history element
 
@@ -223,6 +225,51 @@ const CustomerPage = () => {
     color: isOverLimit && !hasPaidRequiredAmount ? "#a9a9a9" : "#fff",
   };
 
+  const getLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocation({ latitude, longitude });
+
+          // Генерация ссылки для обмена через Яндекс.Карты
+          const locationLink = `https://yandex.ru/maps/?ll=${longitude},${latitude}&z=12`;
+          setShareUrl(locationLink);
+
+          // Инициализация карты и добавление маркера
+          initMap(latitude, longitude);
+        },
+        (error) => {
+          message.error("Не удалось получить местоположение.");
+        },
+        { enableHighAccuracy: true } // Включаем высокую точность для геолокации
+      );
+    } else {
+      message.error("Ваш браузер не поддерживает геолокацию.");
+    }
+  };
+
+  const shareLocation = () => {
+    if (!shareUrl) {
+      message.error("Местоположение ещё не загружено.");
+      return;
+    }
+
+    if (navigator.share) {
+      navigator
+        .share({
+          title: "Моё местоположение",
+          text: "Посмотрите моё местоположение на Яндекс.Картах.",
+          url: shareUrl,
+        })
+        .then(() => message.success("Местоположение успешно отправлено!"))
+        .catch((error) => message.error("Ошибка при отправке местоположения."));
+    } else {
+      // Альтернативный способ для браузеров, которые не поддерживают navigator.share
+      message.info(`Ваше местоположение: ${shareUrl}`);
+    }
+  };
+
   return (
     <div ref={customerRef}>
       <Button
@@ -351,6 +398,18 @@ const CustomerPage = () => {
           сумму погашения.
         </p>
       </Modal>
+
+      <Button
+        onClick={shareLocation}
+        icon={<ShareAltOutlined />}
+        type="primary"
+        style={{ marginTop: 20 }}
+      >
+        Поделиться местоположением
+      </Button>
+      <Button onClick={getLocation} style={{ marginTop: 10 }}>
+        Получить местоположение
+      </Button>
     </div>
   );
 };
