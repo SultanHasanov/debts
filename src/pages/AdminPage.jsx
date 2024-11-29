@@ -4,11 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { CopyOutlined, CheckOutlined } from "@ant-design/icons";
 import * as XLSX from "xlsx";
 import cash from "./cash.png";
+import "../App.css";
+
+const API_URL = "https://649853cd515dd1de.mokky.dev/items";
 
 const AdminPage = () => {
-  const [customers, setCustomers] = useState(
-    JSON.parse(localStorage.getItem("customers")) || []
-  );
+  const [customers, setCustomers] = useState([]);
   const [isAddCustomerModalVisible, setIsAddCustomerModalVisible] =
     useState(false);
   const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
@@ -18,30 +19,49 @@ const AdminPage = () => {
   const navigate = useNavigate();
   const inputRef = useRef(null);
 
-  const generateUniqueId = (existingIds) => {
-    let newId;
-    do {
-      newId = Math.floor(Math.random() * 9000) + 1000;
-    } while (existingIds.includes(newId));
-    return newId.toString();
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch(API_URL);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(data);
+      } else {
+        throw new Error("Failed to fetch customers");
+      }
+    } catch (error) {
+      console.error("Error fetching customers:", error);
+      message.error("Ошибка при загрузке данных покупателей");
+    }
   };
 
-  const handleAddCustomer = () => {
-    const existingIds = customers.map((customer) => customer.id);
-    const newCustomerId = generateUniqueId(existingIds);
-
+  const handleAddCustomer = async () => {
     const newCustomer = {
-      id: newCustomerId,
       name: newCustomerName,
       debtTotal: 0,
       history: [],
     };
 
-    const updatedCustomers = [...customers, newCustomer];
-    localStorage.setItem("customers", JSON.stringify(updatedCustomers));
-    setCustomers(updatedCustomers);
-    setNewCustomerName("");
-    setIsAddCustomerModalVisible(false);
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCustomer),
+      });
+
+      if (response.ok) {
+        const createdCustomer = await response.json();
+        setCustomers([...customers, createdCustomer]);
+        message.success("Покупатель успешно добавлен!");
+      } else {
+        throw new Error("Failed to add customer");
+      }
+    } catch (error) {
+      console.error("Error adding customer:", error);
+      message.error("Ошибка при добавлении покупателя");
+    } finally {
+      setNewCustomerName("");
+      setIsAddCustomerModalVisible(false);
+    }
   };
 
   const handleCopyId = (id) => {
@@ -115,10 +135,8 @@ const AdminPage = () => {
   };
 
   useEffect(() => {
-    if (isAddCustomerModalVisible && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isAddCustomerModalVisible]);
+    fetchCustomers();
+  }, []);
 
   const handleLogout = () => {
     sessionStorage.removeItem("userType");
@@ -144,7 +162,7 @@ const AdminPage = () => {
     {
       title: "Действия",
       key: "actions",
-      render: (text, record) => (
+      render: (_, record) => (
         <div>
           <Button onClick={() => navigate(`/customer/${record.id}`)}>
             Просмотр
@@ -155,9 +173,9 @@ const AdminPage = () => {
     {
       title: "",
       key: "money",
-      render: (text, record) =>
+      render: (_, record) =>
         record.debtTotal >= 10000 ? (
-          <img src={cash} style={{ height: 50 }} />
+          <img src={cash} alt="Cash Icon" style={{ height: 50 }} />
         ) : null,
     },
   ];
@@ -182,6 +200,7 @@ const AdminPage = () => {
       <Button
         onClick={handleSendAllData}
         style={{
+          marginBottom: 20,
           marginLeft: "10px",
           backgroundColor: "#007bff",
           color: "#fff",

@@ -1,156 +1,88 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Button, Input, Table, Modal, message, Progress, Slider } from "antd";
-import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeftOutlined, ShareAltOutlined } from "@ant-design/icons";
 import html2canvas from "html2canvas";
+import { observer } from "mobx-react";
+import { useNavigate, useParams } from "react-router-dom";
+import customerStore from "../stores/CustomerStore";
 
-const CustomerPage = () => {
+const CustomerPage = observer(() => {
   const { id } = useParams();
-  const [customer, setCustomer] = useState(null);
-  const [newDebt, setNewDebt] = useState(0);
-  const [comments, setComments] = useState("");
-  const [repaymentAmount, setRepaymentAmount] = useState(0);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [isRepaymentModalVisible, setIsRepaymentModalVisible] = useState(false);
-  const [hasPaidRequiredAmount, setHasPaidRequiredAmount] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const inputRef = useRef(null);
+  const historyRef = useRef(null);
   const navigate = useNavigate();
-  const [location, setLocation] = useState(null); // Местоположение пользователя
-  const [shareUrl, setShareUrl] = useState(""); // URL для передачи
-  const customerRef = useRef(null); // Ref for the customer element
-  const historyRef = useRef(null); // Ref for the history element
-
-  const handleBack = () => {
-    navigate(-1); // Go back to the previous page
-  };
 
   useEffect(() => {
-    // Load customer data from localStorage
-    const customerData = JSON.parse(localStorage.getItem("customers"))?.find(
-      (c) => c.id === id
-    );
-    setCustomer(customerData || { debtTotal: 0, history: [] });
-
-    // Check authorization
-    const userType = sessionStorage.getItem("userType");
-    setIsAdmin(userType === "admin");
+    customerStore.fetchCustomerData(id);
   }, [id]);
 
-  useEffect(() => {
-    if (isModalVisible && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isModalVisible]);
+  const handleBack = () => {
+    navigate(-1);
+  };
 
   const handleAddDebt = () => {
-    if (!customer) return;
+    if (!customerStore.customer) return; // Если клиент не загружен, не делаем ничего
 
-    const totalDebt = customer.debtTotal + newDebt;
-
-    if (totalDebt > 10000) {
-      const repaymentRequired = 0.4 * customer.debtTotal;
-
-      if (repaymentAmount < repaymentRequired) {
-        message.error(
-          `Для совершения новой покупки необходимо оплатить минимум ${
-            repaymentRequired - repaymentAmount
-          } рублей.`
-        );
-        return;
-      }
-
-      const newDebtTotal = customer.debtTotal - repaymentAmount;
-      const updatedCustomer = {
-        ...customer,
-        debtTotal: newDebtTotal,
-        history: [
-          ...customer.history,
-          {
-            amount: newDebt,
-            comment: comments,
-            date: new Date().toLocaleString("ru-RU", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          },
-        ],
-      };
-
-      const customers = JSON.parse(localStorage.getItem("customers"));
-      localStorage.setItem(
-        "customers",
-        JSON.stringify([
-          ...customers.filter((c) => c.id !== id),
-          updatedCustomer,
-        ])
-      );
-
-      setCustomer(updatedCustomer);
-      setNewDebt(0);
-      setRepaymentAmount(0);
-      setComments("");
-      setIsModalVisible(false);
-      setHasPaidRequiredAmount(false);
-    } else {
-      const updatedCustomer = {
-        ...customer,
-        debtTotal: totalDebt,
-        history: [
-          ...customer.history,
-          {
-            amount: newDebt,
-            comment: comments,
-            date: new Date().toLocaleString("ru-RU", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          },
-        ],
-      };
-
-      const customers = JSON.parse(localStorage.getItem("customers"));
-      localStorage.setItem(
-        "customers",
-        JSON.stringify([
-          ...customers.filter((c) => c.id !== id),
-          updatedCustomer,
-        ])
-      );
-
-      setCustomer(updatedCustomer);
-      setNewDebt(0);
-      setComments("");
-      setIsModalVisible(false);
+    // Проверим, если введенная сумма долга не меньше или равна нулю
+    if (customerStore.newDebt <= 0) {
+      message.error("Сумма долга должна быть больше нуля.");
+      return;
     }
+
+    // Проверка на превышение лимита (если долг клиента уже больше 10,000)
+    const totalDebt = customerStore.customer.debtTotal + customerStore.newDebt;
+    if (totalDebt > 10000) {
+      message.error("Сумма долга превышает лимит 10,000 рублей.");
+      return;
+    }
+
+    // Обновление данных клиента с новым долгом и историей
+    const updatedCustomer = {
+      ...customerStore.customer,
+      debtTotal: totalDebt, // Новый долг
+      history: [
+        ...customerStore.customer.history, // История покупок
+        {
+          amount: customerStore.newDebt,
+          comment: customerStore.comments, // Комментарий
+          date: new Date().toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ],
+    };
+
+    // Отправка обновленных данных клиента на сервер
+    customerStore.updateCustomerData(updatedCustomer);
+
+    // Сброс состояния после добавления долга
+    customerStore.resetDebtState();
   };
 
   const handleRepayment = () => {
-    if (!customer) return;
+    if (!customerStore.customer) return;
 
-    const repaymentRequired = 0.4 * customer.debtTotal;
-
-    if (repaymentAmount < repaymentRequired) {
+    // Проверка, чтобы сумма погашения не превышала текущий долг
+    if (customerStore.repaymentAmount > customerStore.customer.debtTotal) {
       message.error(
-        `Необходимо погасить не менее ${repaymentRequired} рублей.`
+        `Вы не можете погасить больше, чем текущий долг: ${customerStore.customer.debtTotal} рублей.`
       );
       return;
     }
 
-    const newDebtTotal = customer.debtTotal - repaymentAmount;
+    // Логика погашения долга
     const updatedCustomer = {
-      ...customer,
-      debtTotal: newDebtTotal,
+      ...customerStore.customer,
+      debtTotal:
+        customerStore.customer.debtTotal - customerStore.repaymentAmount,
       history: [
-        ...customer.history,
+        ...customerStore.customer.history,
         {
-          amount: -repaymentAmount,
+          amount: -customerStore.repaymentAmount, // Погашение долга
           comment: "Погашение долга",
           date: new Date().toLocaleString("ru-RU", {
             day: "2-digit",
@@ -163,24 +95,15 @@ const CustomerPage = () => {
       ],
     };
 
-    const customers = JSON.parse(localStorage.getItem("customers"));
-    localStorage.setItem(
-      "customers",
-      JSON.stringify([...customers.filter((c) => c.id !== id), updatedCustomer])
-    );
-
-    setCustomer(updatedCustomer);
-    setRepaymentAmount(0);
-    setIsRepaymentModalVisible(false);
-    setHasPaidRequiredAmount(true);
-  };
-
-  const handleDebtChange = (value) => {
-    if (customer && customer.debtTotal + value <= 10000) {
-      setNewDebt(value);
-    } else {
-      setNewDebt(10000 - (customer ? customer.debtTotal : 0));
+    // Обновляем данные клиента
+    const customerId = customerStore.customer?.id;
+    if (customerId) {
+      customerStore.updateCustomerData(updatedCustomer, customerId);
     }
+
+    // Сбрасываем состояние
+    customerStore.resetRepaymentState();
+    customerStore.isRepaymentModalVisible = false;
   };
 
   const captureScreenshot = () => {
@@ -188,90 +111,59 @@ const CustomerPage = () => {
 
     html2canvas(historyRef.current).then((canvas) => {
       canvas.toBlob((blob) => {
-        const file = new File([blob], `debt_history_${customer.name}.png`, {
-          type: "image/png",
-        });
+        const file = new File(
+          [blob],
+          `debt_history_${customerStore.customer.name}.png`,
+          {
+            type: "image/png",
+          }
+        );
 
-        // Share the screenshot if Web Share API is available
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           navigator
             .share({
               files: [file],
-              title: `Долг - ${customer.name}`,
-              text: "Отдай долг тварь.",
+              title: `Долг - ${customerStore.customer.name}`,
+              text: "Просим оплатить долг",
             })
             .then(() => console.log("Shared successfully!"))
             .catch((error) => console.log("Sharing failed:", error));
         } else {
-          // Fallback for browsers that do not support Web Share API
           const link = document.createElement("a");
           link.href = canvas.toDataURL("image/png");
-          link.download = `debt_history_${customer.name}.png`;
+          link.download = `debt_history_${customerStore.customer.name}.png`;
           link.click();
         }
       });
     });
   };
 
-  if (!customer) {
+  const buttonStyle = {
+    backgroundColor:
+      customerStore.isOverLimit && !customerStore.hasPaidRequiredAmount
+        ? "#d3d3d3"
+        : "#52c41a",
+    borderColor:
+      customerStore.isOverLimit && !customerStore.hasPaidRequiredAmount
+        ? "#d3d3d3"
+        : "#52c41a",
+    color:
+      customerStore.isOverLimit && !customerStore.hasPaidRequiredAmount
+        ? "#a9a9a9"
+        : "#fff",
+  };
+
+  if (!customerStore.customer) {
     return <div>Загрузка данных покупателя...</div>;
   }
 
-  const isOverLimit = customer.debtTotal >= 10000;
-  const buttonStyle = {
-    backgroundColor:
-      isOverLimit && !hasPaidRequiredAmount ? "#d3d3d3" : "#52c41a",
-    borderColor: isOverLimit && !hasPaidRequiredAmount ? "#d3d3d3" : "#52c41a",
-    color: isOverLimit && !hasPaidRequiredAmount ? "#a9a9a9" : "#fff",
-  };
-
-  const getLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setLocation({ latitude, longitude });
-          message.success("Местоположение успешно получено!");
-          // Генерация ссылки для обмена через Яндекс.Карты
-          const locationLink = `https://yandex.ru/maps/?ll=${longitude},${latitude}&z=12`;
-          setShareUrl(locationLink);
-
-          // Инициализация карты и добавление маркера
-          initMap(latitude, longitude);
-        },
-        (error) => {
-          message.error("Не удалось получить местоположение.");
-        },
-        { enableHighAccuracy: true } // Включаем высокую точность для геолокации
-      );
-    } else {
-      message.error("Ваш браузер не поддерживает геолокацию.");
-    }
-  };
-
-  const shareLocation = () => {
-    if (!shareUrl) {
-      message.error("Местоположение ещё не загружено.");
-      return;
-    }
-
-    if (navigator.share) {
-      navigator
-        .share({
-          title: "Моё местоположение",
-          text: "Посмотрите моё местоположение на Яндекс.Картах.",
-          url: shareUrl,
-        })
-        .then(() => message.success("Местоположение успешно отправлено!"))
-        .catch((error) => message.error("Ошибка при отправке местоположения."));
-    } else {
-      // Альтернативный способ для браузеров, которые не поддерживают navigator.share
-      message.info(`Ваше местоположение: ${shareUrl}`);
-    }
+  const onChange = (e) => {
+    const { value } = e.target;
+    customerStore.setComments(value); // Здесь вызывается метод для обновления комментария
   };
 
   return (
-    <div ref={customerRef}>
+    <div>
       <Button
         type="link"
         icon={<ArrowLeftOutlined />}
@@ -281,16 +173,16 @@ const CustomerPage = () => {
         Назад
       </Button>
       <h2>Страница покупателя</h2>
-      <p>Имя: {customer.name}</p>
-      <p>Текущий долг: {customer.debtTotal} рублей</p>
+      <p>Имя: {customerStore.customer.name}</p>
+      <p>Текущий долг: {customerStore.customer.debtTotal} рублей</p>
       <Progress
-        percent={(customer.debtTotal / 10000) * 100}
-        format={() => `${customer.debtTotal} рублей`}
+        percent={(customerStore.customer.debtTotal / 10000) * 100}
+        format={() => `${customerStore.customer.debtTotal} рублей`}
         style={{ marginBottom: 20 }}
       />
-      {!isAdmin && (
+      {!customerStore.isAdmin && (
         <>
-          {isOverLimit && (
+          {customerStore.isOverLimit && (
             <p style={{ color: "red" }}>
               Долг превышает 10000 рублей. Необходимо оплатить 40% от долга,
               чтобы сделать следующую покупку.
@@ -298,28 +190,35 @@ const CustomerPage = () => {
           )}
         </>
       )}
-      {isAdmin && (
+      {customerStore.isAdmin && (
         <>
           <Button
-            onClick={() => setIsModalVisible(true)}
-            disabled={isOverLimit && !hasPaidRequiredAmount}
-            style={buttonStyle}
+            onClick={() => (customerStore.isModalVisible = true)}
+            disabled={customerStore.isFinalPurchaseMade} // Блокируем кнопку, если лимит уже был превышен
+            style={{
+              backgroundColor: customerStore.isFinalPurchaseMade
+                ? "#d3d3d3"
+                : "#52c41a",
+              borderColor: customerStore.isFinalPurchaseMade
+                ? "#d3d3d3"
+                : "#52c41a",
+              color: customerStore.isFinalPurchaseMade ? "#a9a9a9" : "#fff",
+            }}
           >
             Новая покупка
           </Button>
-          {isOverLimit && (
-            <>
-              <Button
-                onClick={() => setIsRepaymentModalVisible(true)}
-                style={{ marginTop: 10 }}
-              >
-                Погасить долг
-              </Button>
-              <p style={{ color: "red" }}>
-                Долг превышает 10000 рублей. Необходимо оплатить 40% от долга,
-                чтобы сделать следующую покупку.
-              </p>
-            </>
+
+          <Button
+            onClick={() => (customerStore.isRepaymentModalVisible = true)}
+            style={{ marginTop: 10 }}
+          >
+            Погасить долг
+          </Button>
+          {customerStore.isOverLimit && (
+            <p style={{ color: "red" }}>
+              Долг превышает 10000 рублей. Необходимо оплатить 40% от долга,
+              чтобы сделать следующую покупку.
+            </p>
           )}
 
           <Button
@@ -340,78 +239,80 @@ const CustomerPage = () => {
         }}
       >
         <Table
-          dataSource={customer.history}
+          pagination={{ pageSize: 10 }}
+          dataSource={customerStore.customer.history}
           columns={[
             { title: "Сумма", dataIndex: "amount", key: "amount" },
             { title: "Комментарий", dataIndex: "comment", key: "comment" },
             { title: "Дата", dataIndex: "date", key: "date" },
           ]}
-          rowKey="date"
+          rowKey={(record, index) => `${record.date}-${index}`}
         />
-        <p>Текущий долг: {customer.debtTotal} рублей</p>
+        <p>Текущий долг: {customerStore.customer.debtTotal} рублей</p>
       </div>
+
+      {/* Модальное окно добавления долга */}
       <Modal
         title="Добавить новый долг"
-        visible={isModalVisible}
-        onOk={handleAddDebt}
-        onCancel={() => setIsModalVisible(false)}
-        afterClose={() => setNewDebt(0)}
+        visible={customerStore.isModalVisible}
+        onOk={() => customerStore.handleAddDebt()} // Обработчик добавления долга
+        onCancel={() => (customerStore.isModalVisible = false)}
+        afterClose={() => customerStore.resetDebtState()}
       >
+        {/* Поле ввода суммы долга */}
         <Input
           ref={inputRef}
           type="number"
           min={0}
           placeholder="Сумма долга"
-          value={newDebt}
-          onChange={(e) => handleDebtChange(Number(e.target.value))}
+          value={customerStore.newDebt}
+          onChange={(e) =>
+            customerStore.handleDebtChange(Number(e.target.value))
+          }
         />
+
         <Slider
           min={0}
-          max={10000 - (customer ? customer.debtTotal : 0)}
+          max={20000} // Позволяем установить большое значение
           step={1}
-          value={newDebt}
-          onChange={handleDebtChange}
+          value={customerStore.newDebt}
+          onChange={(value) => customerStore.handleDebtChange(value)}
           style={{ marginTop: 20 }}
         />
+
+        {/* Поле для ввода комментария */}
         <Input.TextArea
           placeholder="Комментарий"
-          value={comments}
-          onChange={(e) => setComments(e.target.value)}
+          value={customerStore.comments}
+          onChange={(e) => customerStore.setComments(e.target.value)}
           style={{ marginTop: 20 }}
         />
       </Modal>
+
+      {/* Модальное окно погашения долга */}
       <Modal
         title="Погасить долг"
-        visible={isRepaymentModalVisible}
+        visible={customerStore.isRepaymentModalVisible}
         onOk={handleRepayment}
-        onCancel={() => setIsRepaymentModalVisible(false)}
+        onCancel={() => (customerStore.isRepaymentModalVisible = false)}
       >
         <Input
           type="number"
           min={0}
+          max={customerStore.customer.debtTotal} // Ограничиваем максимальное значение полем текущего долга
           placeholder="Сумма погашения"
-          value={repaymentAmount}
-          onChange={(e) => setRepaymentAmount(Number(e.target.value))}
+          value={customerStore.repaymentAmount}
+          onChange={(e) =>
+            customerStore.setRepaymentAmount(Number(e.target.value))
+          }
         />
+
         <p>
-          Для новой покупки необходимо погасить 40% от текущего долга. Введите
-          сумму погашения.
+          Введите сумму погашения долга. Вы можете погасить любой размер суммы.
         </p>
       </Modal>
-
-      <Button
-        onClick={shareLocation}
-        icon={<ShareAltOutlined />}
-        type="primary"
-        style={{ marginTop: 20 }}
-      >
-        Поделиться местоположением
-      </Button>
-      <Button onClick={getLocation} style={{ marginTop: 10 }}>
-        Получить местоположение
-      </Button>
     </div>
   );
-};
+});
 
 export default CustomerPage;
