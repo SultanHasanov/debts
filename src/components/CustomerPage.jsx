@@ -20,47 +20,74 @@ const CustomerPage = observer(() => {
     navigate(-1);
   };
 
-  const handleAddDebt = () => {
-    if (!customerStore.customer) return; // Если клиент не загружен, не делаем ничего
+  // const handleAddDebt = () => {
+  //   if (!customerStore.customer) return; // Если клиент не загружен, не делаем ничего
 
-    // Проверим, если введенная сумма долга не меньше или равна нулю
-    if (customerStore.newDebt <= 0) {
-      message.error("Сумма долга должна быть больше нуля.");
-      return;
-    }
+  //   // Проверим, если введенная сумма долга не меньше или равна нулю
+  //   if (customerStore.newDebt <= 0) {
+  //     message.error("Сумма долга должна быть больше нуля.");
+  //     return;
+  //   }
 
-    // Проверка на превышение лимита (если долг клиента уже больше 10,000)
-    const totalDebt = customerStore.customer.debtTotal + customerStore.newDebt;
-    if (totalDebt > 10000) {
-      message.error("Сумма долга превышает лимит 10,000 рублей.");
-      return;
-    }
+  //   // Проверка на превышение лимита (если долг клиента уже больше 10,000)
+  //   const totalDebt = customerStore.customer.debtTotal + customerStore.newDebt;
+  //   if (totalDebt > 10000) {
+  //     message.error("Сумма долга превышает лимит 10,000 рублей.");
+  //     return;
+  //   }
 
-    // Обновление данных клиента с новым долгом и историей
-    const updatedCustomer = {
-      ...customerStore.customer,
-      debtTotal: totalDebt, // Новый долг
-      history: [
-        ...customerStore.customer.history, // История покупок
-        {
-          amount: customerStore.newDebt,
-          comment: customerStore.comments, // Комментарий
-          date: new Date().toLocaleString("ru-RU", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      ],
+  //   // Обновление данных клиента с новым долгом и историей
+  //   const updatedCustomer = {
+  //     ...customerStore.customer,
+  //     debtTotal: totalDebt, // Новый долг
+  //     history: [
+  //       ...customerStore.customer.history, // История покупок
+  //       {
+  //         amount: customerStore.newDebt,
+  //         comment: customerStore.comments, // Комментарий
+  //         date: new Date().toLocaleString("ru-RU", {
+  //           day: "2-digit",
+  //           month: "long",
+  //           year: "numeric",
+  //           hour: "2-digit",
+  //           minute: "2-digit",
+  //         }),
+  //       },
+  //     ],
+  //   };
+
+  //   // Отправка обновленных данных клиента на сервер
+  //   customerStore.updateCustomerData(updatedCustomer);
+
+  //   // Сброс состояния после добавления долга
+  //   customerStore.resetDebtState();
+  // };
+
+  const sendMessageToTelegram = async (message) => {
+    const botToken = "7287112129:AAHms7I0zDDWcE--MQYgTeiJCP74itP092g"; // Ваш токен бота
+    const chatId = "-4660318137"; // Ваш chat_id (можно получить через бота @userinfobot)
+
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+    const params = {
+      chat_id: chatId,
+      text: message,
+      parse_mode: "html",
+      disable_web_page_preview: true,
     };
 
-    // Отправка обновленных данных клиента на сервер
-    customerStore.updateCustomerData(updatedCustomer);
-
-    // Сброс состояния после добавления долга
-    customerStore.resetDebtState();
+    try {
+      await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(params),
+      });
+      console.log("Сообщение отправлено в Telegram!");
+    } catch (error) {
+      console.error("Ошибка при отправке сообщения:", error);
+    }
   };
 
   const handleRepayment = () => {
@@ -100,6 +127,14 @@ const CustomerPage = observer(() => {
     if (customerId) {
       customerStore.updateCustomerData(updatedCustomer, customerId);
     }
+
+    // Отправляем сообщение в Telegram
+    let repaymentMessage = `Клиент: <b>${customerStore.customer.name}</b>\n`;
+    repaymentMessage += `погасил(а) долг на сумму: <b>${customerStore.repaymentAmount}</b> ₽.\n`;
+    repaymentMessage += `Остаток долга: <b>${updatedCustomer.debtTotal} </b> ₽.\n`
+    repaymentMessage += `<i>Пожалуйста проверьте платеж или напишите Мадине</i>\n`
+    repaymentMessage += `<a href="wa.me/+79655509967?text=Проверила долг все чики пуки">Написать Мадине</a>`
+    sendMessageToTelegram(repaymentMessage);
 
     // Сбрасываем состояние
     customerStore.resetRepaymentState();

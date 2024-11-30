@@ -11,6 +11,7 @@ class CustomerStore {
     isAdmin = true;
     isFinalPurchaseMade = false;
     
+    
   
     constructor() {
       makeAutoObservable(this);
@@ -52,6 +53,8 @@ setComments(newComments) {
       this.newDebt = value; // Устанавливаем значение без проверки лимита
     }
   }
+
+  
 
   async fetchCustomerData(id) {
     try {
