@@ -3,7 +3,6 @@ import { Button, Input, Table, Modal, message } from "antd";
 import { useNavigate } from "react-router-dom";
 import { CopyOutlined, CheckOutlined } from "@ant-design/icons";
 import * as XLSX from "xlsx";
-import cash from "./cash.png";
 import "../App.css";
 
 const API_URL = "https://649853cd515dd1de.mokky.dev/items";
@@ -18,6 +17,8 @@ const AdminPage = () => {
   const [copiedId, setCopiedId] = useState(null);
   const navigate = useNavigate();
   const inputRef = useRef(null);
+
+  console.log({customers})
 
   const fetchCustomers = async () => {
     try {
@@ -35,19 +36,23 @@ const AdminPage = () => {
   };
 
   const handleAddCustomer = async () => {
+    // Generate a random 4-digit code
+    const uniqueCode = Math.floor(1000 + Math.random() * 9000); // Random number between 1000 and 9999
+  
     const newCustomer = {
       name: newCustomerName,
       debtTotal: 0,
       history: [],
+      code: uniqueCode, // Add the generated code to the new customer object
     };
-
+  
     try {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newCustomer),
       });
-
+  
       if (response.ok) {
         const createdCustomer = await response.json();
         setCustomers([...customers, createdCustomer]);
@@ -63,6 +68,7 @@ const AdminPage = () => {
       setIsAddCustomerModalVisible(false);
     }
   };
+  
 
   const handleCopyId = (id) => {
     navigator.clipboard.writeText(id).then(() => {
@@ -171,13 +177,63 @@ const AdminPage = () => {
       ),
     },
     {
-      title: "",
-      key: "money",
-      render: (_, record) =>
-        record.debtTotal >= 10000 ? (
-          <img src={cash} alt="Cash Icon" style={{ height: 50 }} />
-        ) : null,
-    },
+      title: "Не погашал долг",
+      dataIndex: "lastPayment",
+      key: "lastPayment",
+      render: (_, record) => {
+        if (!record.history || record.history.length === 0) {
+          // Если истории нет, считаем, что покупатель не погашал долг
+          return
+        }
+    
+        const currentDate = new Date();
+    
+        // Сортируем историю по дате в порядке возрастания
+        const sortedHistory = [...record.history].sort(
+          (a, b) => new Date(a.date) - new Date(b.date)
+        );
+    
+        // Находим первый долг
+        const firstDebt = sortedHistory.find((payment) => payment.amount > 0);
+        if (!firstDebt) {
+          return <span>Нет данных о долгах</span>;
+        }
+    
+        // Находим последнее погашение
+        const lastPayment = sortedHistory
+          .reverse()
+          .find((payment) => payment.comment.includes("Погашение долга"));
+    
+        if (!lastPayment) {
+          const firstDebtDate = new Date(firstDebt.date);
+          const diffInTime = currentDate - firstDebtDate;
+          const diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24)); // Разница в днях
+          return (
+            <span>
+            <span style={{ color: diffInDays > 30 ? "red" : "black" }}>
+              {diffInDays} дн. &nbsp;
+            <span style={{ color: "green" }}>Долг: <b>{record.debtTotal}₽</b></span>
+            </span>
+          </span>
+          );
+        }
+    
+        // Если есть погашение, проверяем, прошло ли больше месяца с последнего погашения
+        const lastPaymentDate = new Date(lastPayment.date);
+        const diffInTime = currentDate - lastPaymentDate;
+        const diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24)); // Разница в днях
+    
+        return (
+          <span>
+            <span style={{ color: diffInDays > 30 ? "red" : "black" }}>
+              {diffInDays} дн. &nbsp;
+            <span style={{ color: "green" }}>Долг: <b>{record.debtTotal}₽</b></span>
+            </span>
+          </span>
+        );
+      },
+    }
+    
   ];
 
   return (
@@ -240,7 +296,7 @@ const AdminPage = () => {
               <strong>Имя:</strong> {selectedCustomer.name}
             </p>
             <p>
-              <strong>Код:</strong> {selectedCustomer.id}
+              <strong>Код:</strong> {selectedCustomer.code}
             </p>
             <Button
               onClick={() => handleCopyId(selectedCustomer.id)}

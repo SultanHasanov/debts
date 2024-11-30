@@ -128,13 +128,7 @@ setComments(newComments) {
         {
           amount: this.newDebt,
           comment: this.comments,
-          date: new Date().toLocaleString("ru-RU", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          date: new Date().toISOString(),
         },
       ],
     };
@@ -165,13 +159,7 @@ setComments(newComments) {
         {
           amount: -this.repaymentAmount,
           comment: "Погашение долга",
-          date: new Date().toLocaleString("ru-RU", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          date: new Date().toISOString(),
         },
       ],
     };

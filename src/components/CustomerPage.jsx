@@ -1,20 +1,48 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button, Input, Table, Modal, message, Progress, Slider } from "antd";
 import { ArrowLeftOutlined, ShareAltOutlined } from "@ant-design/icons";
 import html2canvas from "html2canvas";
 import { observer } from "mobx-react";
 import { useNavigate, useParams } from "react-router-dom";
 import customerStore from "../stores/CustomerStore";
+import { toJS } from "mobx";
 
 const CustomerPage = observer(() => {
   const { id } = useParams();
   const inputRef = useRef(null);
   const historyRef = useRef(null);
   const navigate = useNavigate();
-
+  const [sortedData, setSortedData] = useState([]);
+  console.log({ sortedData });
   useEffect(() => {
     customerStore.fetchCustomerData(id);
   }, [id]);
+
+  useEffect(() => {
+    if (customerStore.customer?.history) {
+      const historyArray = toJS(customerStore.customer.history);
+
+      const sortedHistory = [...historyArray].sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB - dateA; // Сортировка по убыванию
+      });
+
+      // Преобразуем дату для отображения в читаемом формате
+      const formattedHistory = sortedHistory.map((entry) => ({
+        ...entry,
+        date: new Intl.DateTimeFormat("ru-RU", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(entry.date)),
+      }));
+
+      setSortedData(formattedHistory);
+    }
+  }, [customerStore.customer?.history]);
 
   const handleBack = () => {
     navigate(-1);
@@ -111,13 +139,7 @@ const CustomerPage = observer(() => {
         {
           amount: -customerStore.repaymentAmount, // Погашение долга
           comment: "Погашение долга",
-          date: new Date().toLocaleString("ru-RU", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          date: new Date().toISOString(),
         },
       ],
     };
@@ -131,9 +153,9 @@ const CustomerPage = observer(() => {
     // Отправляем сообщение в Telegram
     let repaymentMessage = `Клиент: <b>${customerStore.customer.name}</b>\n`;
     repaymentMessage += `погасил(а) долг на сумму: <b>${customerStore.repaymentAmount}</b> ₽.\n`;
-    repaymentMessage += `Остаток долга: <b>${updatedCustomer.debtTotal} </b> ₽.\n`
-    repaymentMessage += `<i>Пожалуйста проверьте платеж или напишите Мадине</i>\n`
-    repaymentMessage += `<a href="wa.me/+79655509967?text=Проверила долг все чики пуки">Написать Мадине</a>`
+    repaymentMessage += `Остаток долга: <b>${updatedCustomer.debtTotal} </b> ₽.\n`;
+    repaymentMessage += `<i>Пожалуйста проверьте платеж или напишите Мадине</i>\n`;
+    repaymentMessage += `<a href="wa.me/+79655509967?text=Проверила долг все чики пуки">Написать Мадине</a>`;
     sendMessageToTelegram(repaymentMessage);
 
     // Сбрасываем состояние
@@ -173,29 +195,29 @@ const CustomerPage = observer(() => {
     });
   };
 
-  const buttonStyle = {
-    backgroundColor:
-      customerStore.isOverLimit && !customerStore.hasPaidRequiredAmount
-        ? "#d3d3d3"
-        : "#52c41a",
-    borderColor:
-      customerStore.isOverLimit && !customerStore.hasPaidRequiredAmount
-        ? "#d3d3d3"
-        : "#52c41a",
-    color:
-      customerStore.isOverLimit && !customerStore.hasPaidRequiredAmount
-        ? "#a9a9a9"
-        : "#fff",
-  };
+  // const buttonStyle = {
+  //   backgroundColor:
+  //     customerStore.isOverLimit && !customerStore.hasPaidRequiredAmount
+  //       ? "#d3d3d3"
+  //       : "#52c41a",
+  //   borderColor:
+  //     customerStore.isOverLimit && !customerStore.hasPaidRequiredAmount
+  //       ? "#d3d3d3"
+  //       : "#52c41a",
+  //   color:
+  //     customerStore.isOverLimit && !customerStore.hasPaidRequiredAmount
+  //       ? "#a9a9a9"
+  //       : "#fff",
+  // };
 
   if (!customerStore.customer) {
     return <div>Загрузка данных покупателя...</div>;
   }
 
-  const onChange = (e) => {
-    const { value } = e.target;
-    customerStore.setComments(value); // Здесь вызывается метод для обновления комментария
-  };
+  // const onChange = (e) => {
+  //   const { value } = e.target;
+  //   customerStore.setComments(value); // Здесь вызывается метод для обновления комментария
+  // };
 
   return (
     <div>
@@ -229,15 +251,18 @@ const CustomerPage = observer(() => {
         <>
           <Button
             onClick={() => (customerStore.isModalVisible = true)}
-            disabled={customerStore.isFinalPurchaseMade} // Блокируем кнопку, если лимит уже был превышен
+            disabled={customerStore.customer.debtTotal < 10000 ? false : true} // Блокируем кнопку, если лимит уже был превышен
             style={{
-              backgroundColor: customerStore.isFinalPurchaseMade
-                ? "#d3d3d3"
-                : "#52c41a",
-              borderColor: customerStore.isFinalPurchaseMade
-                ? "#d3d3d3"
-                : "#52c41a",
-              color: customerStore.isFinalPurchaseMade ? "#a9a9a9" : "#fff",
+              backgroundColor:
+                customerStore.customer.debtTotal > 10000
+                  ? "#d3d3d3"
+                  : "#52c41a",
+              borderColor:
+                customerStore.customer.debtTotal > 10000
+                  ? "#d3d3d3"
+                  : "#52c41a",
+              color:
+                customerStore.customer.debtTotal > 10000 ? "#a9a9a9" : "#fff",
             }}
           >
             Новая покупка
@@ -275,7 +300,7 @@ const CustomerPage = observer(() => {
       >
         <Table
           pagination={{ pageSize: 10 }}
-          dataSource={customerStore.customer.history}
+          dataSource={sortedData}
           columns={[
             { title: "Сумма", dataIndex: "amount", key: "amount" },
             { title: "Комментарий", dataIndex: "comment", key: "comment" },
@@ -304,15 +329,6 @@ const CustomerPage = observer(() => {
           onChange={(e) =>
             customerStore.handleDebtChange(Number(e.target.value))
           }
-        />
-
-        <Slider
-          min={0}
-          max={20000} // Позволяем установить большое значение
-          step={1}
-          value={customerStore.newDebt}
-          onChange={(value) => customerStore.handleDebtChange(value)}
-          style={{ marginTop: 20 }}
         />
 
         {/* Поле для ввода комментария */}
